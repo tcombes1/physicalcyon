@@ -1,0 +1,25 @@
+<div id="<%= dom_id cad_model %>" class="w-full sm:w-auto my-5 space-y-5">
+  <div>
+    <span class="inline-block text-xs font-semibold px-2.5 py-1 rounded-full <%= status_badge_class(cad_model.status) %>">
+      <%= cad_model.status.capitalize %>
+    </span>
+  </div>
+  <div>
+    <strong class="block font-medium mb-1">Name:</strong>
+    <%= cad_model.name %>
+  </div>
+  <div>
+    <strong class="block font-medium mb-1">Description:</strong>
+    <%= cad_model.description %>
+  </div>
+  <div>
+    <strong class="block font-medium mb-1">File format:</strong>
+    <%= cad_model.file_format %>
+  </div>
+  <% if cad_model.file.attached? %>
+    <div>
+      <strong class="block font-medium mb-1">File:</strong>
+      <%= link_to cad_model.file.filename, rails_blob_path(cad_model.file, disposition: "attachment"), class: "text-blue-600 underline" %>
+    </div>
+  <% end %>
+</div>
