@@ -33,12 +33,37 @@ def read_step(step_path):
     return reader.OneShape()
 
 
+def loc_to_trsf(loc):
+    """
+    Convert a TopLoc_Location to a gp_Trsf by walking the datum chain.
+
+    A TopLoc_Location is a linked list of (TopLoc_Datum3D, power) pairs.
+    Each datum wraps a gp_Trsf. We multiply them left-to-right to get the
+    effective transformation.
+    """
+    from OCC.Core.gp import gp_Trsf
+    result = gp_Trsf()          # identity
+    current = loc
+    while not current.IsIdentity():
+        datum_trsf = current.FirstDatum().Trsf()
+        power      = current.FirstPower()
+        if power == -1:
+            datum_trsf.Invert()
+        elif power != 1:
+            # Rare – repeated compositions; approximate with a single datum
+            print(f"Warning: location power {power} not handled, using power=1",
+                  file=sys.stderr)
+        result.Multiply(datum_trsf)
+        current = current.NextLocation()
+    return result
+
+
 def tessellate(shape):
     from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
     from OCC.Core.TopExp import TopExp_Explorer
     from OCC.Core.TopAbs import TopAbs_FACE
     from OCC.Core.BRep import BRep_Tool
-    from OCC.Core.TopLoc import TopLoc_Location  # required as output param for Triangulation()
+    from OCC.Core.TopLoc import TopLoc_Location
 
     # Tessellate with 0.1 mm linear deflection, 0.5 deg angular deflection
     mesh = BRepMesh_IncrementalMesh(shape, 0.1, False, 0.5, True)
@@ -51,20 +76,24 @@ def tessellate(shape):
     explorer = TopExp_Explorer(shape, TopAbs_FACE)
     while explorer.More():
         face = explorer.Current()
-        loc = TopLoc_Location()
+        loc  = TopLoc_Location()
         triangulation = BRep_Tool.Triangulation(face, loc)
 
         if triangulation is not None:
             n_nodes = triangulation.NbNodes()
             n_tris  = triangulation.NbTriangles()
 
-            # Collect vertices — nodes are already in the shape's coordinate
-            # system after BRepMesh_IncrementalMesh runs on the full shape.
+            # Build the effective gp_Trsf for this face's location.
+            # Nodes from the triangulation are in the face's LOCAL coordinate
+            # system; applying the location transforms them to global coords.
+            trsf = None if loc.IsIdentity() else loc_to_trsf(loc)
+
             for i in range(1, n_nodes + 1):
                 node = triangulation.Node(i)
+                if trsf is not None:
+                    node = node.Transformed(trsf)
                 positions.extend([node.X(), node.Y(), node.Z()])
 
-            # Collect triangle indices (1-based → 0-based + offset)
             for i in range(1, n_tris + 1):
                 tri = triangulation.Triangle(i)
                 n1, n2, n3 = tri.Get()
