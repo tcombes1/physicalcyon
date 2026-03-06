@@ -9,7 +9,7 @@ class ConvertStepJob < ApplicationJob
     cad_model.processing!
 
     step_tmp   = Tempfile.new([ "step_input", ".step" ])
-    gltf_tmp   = Tempfile.new([ "gltf_output", ".gltf" ])
+    gltf_tmp   = Tempfile.new([ "gltf_output", ".glb" ])
     thumb_tmp  = Tempfile.new([ "thumb_output", ".png" ])
 
     begin
@@ -33,8 +33,8 @@ class ConvertStepJob < ApplicationJob
 
       cad_model.gltf_file.attach(
         io: File.open(gltf_tmp.path),
-        filename: "#{cad_model.id}.gltf",
-        content_type: "model/gltf+json"
+        filename: "#{cad_model.id}.glb",
+        content_type: "model/gltf-binary"
       )
 
       if File.size(thumb_tmp.path) > 0

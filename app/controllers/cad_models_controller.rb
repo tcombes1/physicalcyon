@@ -1,5 +1,5 @@
 class CadModelsController < ApplicationController
-  before_action :set_cad_model, only: %i[ show edit update destroy ]
+  before_action :set_cad_model, only: %i[ show edit update destroy status ]
 
   # GET /cad_models or /cad_models.json
   def index
@@ -8,6 +8,11 @@ class CadModelsController < ApplicationController
 
   # GET /cad_models/1 or /cad_models/1.json
   def show
+  end
+
+  # GET /cad_models/1/status  (for turbo-frame polling)
+  def status
+    render partial: "cad_models/status", locals: { cad_model: @cad_model }
   end
 
   # GET /cad_models/new

@@ -1,4 +1,4 @@
-<div id="cad_model_status_<%= cad_model.id %>">
+<%= turbo_frame_tag "cad_model_status_#{cad_model.id}" do %>
   <% if cad_model.pending? %>
     <div class="flex items-center gap-2 text-gray-500 mt-4">
       <svg class="animate-spin h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -39,4 +39,4 @@
       ></div>
     </div>
   <% end %>
-</div>
+<% end %>

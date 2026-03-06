@@ -1,5 +1,7 @@
 Rails.application.routes.draw do
-  resources :cad_models
+  resources :cad_models do
+    member { get :status }
+  end
   root "cad_models#index"
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
