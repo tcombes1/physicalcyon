@@ -12,13 +12,13 @@ A Rails 8 web application for uploading STEP CAD files, converting them to glTF,
 - **Solid Cable** — Action Cable adapter (enables Turbo Stream broadcasts across processes)
 - **Active Storage** — STEP file, glTF, and thumbnail storage
 - **Three.js 0.169** — in-browser 3D model viewer via importmap
-- **pythonocc-core** — Python/OpenCASCADE library for STEP → glTF conversion
+- **pythonocc-core** — Python/OpenCASCADE library for STEP → glTF conversion (XDE framework)
 
 ## Features
 
 - Upload `.step` / `.stp` CAD files
 - Background conversion to glTF 2.0 (tessellation via OpenCASCADE)
-- Live status updates on the show page via Turbo Streams (no polling)
+- Live status updates on the show page via Turbo Stream broadcasts over ActionCable (no polling)
 - Interactive 3D viewer with orbit controls (drag to rotate, scroll to zoom)
 - Thumbnail generation (falls back to placeholder if no display available)
 - Status badges: Queued → Converting → Done / Failed
@@ -79,7 +79,7 @@ Then visit [http://localhost:3000](http://localhost:3000).
 2. On save, `ConvertStepJob` is enqueued via Solid Queue
 3. The show page subscribes to a Turbo Stream channel and shows a spinner
 4. The worker picks up the job, calls `lib/step_to_gltf.py` via `Open3`
-5. The Python script reads the STEP file with `STEPControl_Reader`, tessellates with `BRepMesh_IncrementalMesh`, and writes a self-contained glTF 2.0 JSON (geometry embedded as base64)
+5. The Python script reads the STEP file with `STEPCAFControl_Reader` into an XDE document, which correctly resolves the full assembly hierarchy (`NEXT_ASSEMBLY_USAGE_OCCURRENCE`, `ITEM_DEFINED_TRANSFORMATION`, `PRODUCT_DEFINITION_PLACEMENT`). It tessellates the compound with `BRepMesh_IncrementalMesh`, then writes a self-contained binary glTF (`.glb`) via `RWGltf_CafWriter`, which preserves component placements as a proper glTF scene graph
 6. On success, the glTF and thumbnail are attached via Active Storage and status is set to `done`
 7. The `after_update_commit` callback broadcasts a Turbo Stream replace, updating the page live
 8. The `model-viewer` Stimulus controller initialises a Three.js scene and loads the glTF
