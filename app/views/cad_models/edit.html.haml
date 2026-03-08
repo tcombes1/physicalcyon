@@ -1,0 +1,12 @@
+- content_for :title, "Edit #{@cad_model.name}"
+
+.absolute.inset-0.overflow-y-auto.flex.items-start.justify-center.pt-16.pb-8.px-4
+  .w-full.max-w-lg.rounded-xl.border.p-8{ class: "bg-taupe-100 border-taupe-200 dark:bg-taupe-900 dark:border-taupe-800" }
+    %h1{ class: "font-bold text-2xl mb-6 text-taupe-900 dark:text-taupe-100" } Edit model
+    = render "form", cad_model: @cad_model
+    .mt-4.flex.gap-4
+      = link_to "← Back", @cad_model,
+          class: "text-sm transition-colors text-taupe-400 hover:text-taupe-700 dark:text-taupe-500 dark:hover:text-taupe-300"
+      = button_to "Delete", @cad_model, method: :delete,
+          class: "text-sm transition-colors text-red-500 hover:text-red-700 dark:hover:text-red-400 cursor-pointer bg-transparent border-0 p-0",
+          data: { turbo_confirm: "Delete this model?" }

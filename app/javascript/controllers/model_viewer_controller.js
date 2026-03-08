@@ -183,7 +183,8 @@ export default class extends Controller {
     el.appendChild(this._renderer.domElement)
 
     this._scene = new THREE.Scene()
-    this._scene.background = new THREE.Color(0xf0f0f0)
+    this._scene.background = new THREE.Color(this._bgColor())
+    this._setupThemeObserver()
 
     this._camera = new THREE.PerspectiveCamera(45, el.clientWidth / el.clientHeight, 0.01, 10000)
     this._camera.position.set(0, 0, 5)
@@ -278,6 +279,19 @@ export default class extends Controller {
     )
   }
 
+  // ── Theme-aware background ──────────────────────────────────────────────────
+
+  _bgColor() {
+    return document.documentElement.classList.contains("dark") ? 0x1f1a16 : 0xede9e2
+  }
+
+  _setupThemeObserver() {
+    this._themeObserver = new MutationObserver(() => {
+      if (this._scene) this._scene.background = new THREE.Color(this._bgColor())
+    })
+    this._themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] })
+  }
+
   // ── Resize ──────────────────────────────────────────────────────────────────
 
   _setupResizeObserver() {
@@ -307,6 +321,10 @@ export default class extends Controller {
       this._renderer.dispose()
       canvas.remove()
       this._renderer = null
+    }
+    if (this._themeObserver) {
+      this._themeObserver.disconnect()
+      this._themeObserver = null
     }
     this._scene       = null
     this._camera      = null

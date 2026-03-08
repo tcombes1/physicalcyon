@@ -1,1 +1,11 @@
 @import "tailwindcss";
+
+/* Class-based dark mode — toggled via JS on <html class="dark"> */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Turbo Frame fills its parent so the viewer occupies full height */
+turbo-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+}

@@ -1,9 +1,10 @@
 class CadModelsController < ApplicationController
   before_action :set_cad_model, only: %i[ show edit update destroy status ]
+  before_action :load_sidebar_models
 
   # GET /cad_models or /cad_models.json
   def index
-    @cad_models = CadModel.all
+    @cad_models = CadModel.order(created_at: :desc)
   end
 
   # GET /cad_models/1 or /cad_models/1.json
@@ -72,5 +73,9 @@ class CadModelsController < ApplicationController
     # Only allow a list of trusted parameters through.
     def cad_model_params
       params.expect(cad_model: [ :name, :description, :file_format, :file ])
+    end
+
+    def load_sidebar_models
+      @sidebar_models = CadModel.order(created_at: :desc)
     end
 end

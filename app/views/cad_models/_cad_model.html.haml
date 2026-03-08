@@ -1,0 +1,16 @@
+%div{ id: dom_id(cad_model), class: "w-full sm:w-auto my-5 space-y-3" }
+  %div
+    %span{ class: "inline-block text-xs font-semibold px-2.5 py-1 rounded-full #{status_badge_class(cad_model.status)}" }
+      = cad_model.status.capitalize
+  %div
+    %strong.block.font-medium.mb-1.text-gray-300 Name:
+    %span.text-gray-100= cad_model.name
+  - if cad_model.description.present?
+    %div
+      %strong.block.font-medium.mb-1.text-gray-300 Description:
+      %span.text-gray-100= cad_model.description
+  - if cad_model.file.attached?
+    %div
+      %strong.block.font-medium.mb-1.text-gray-300 File:
+      = link_to cad_model.file.filename, rails_blob_path(cad_model.file, disposition: "attachment"),
+          class: "text-blue-400 underline"

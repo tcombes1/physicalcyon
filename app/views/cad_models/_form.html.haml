@@ -1,0 +1,32 @@
+= form_with(model: cad_model, class: "contents") do |form|
+  - if cad_model.errors.any?
+    #error_explanation.rounded-md.border.px-3.py-2.font-medium.mb-4{ class: "bg-red-50 border-red-200 text-red-700 dark:bg-red-950 dark:border-red-800 dark:text-red-400" }
+      %p= "#{pluralize(cad_model.errors.count, "error")} prohibited this model from being saved:"
+      %ul.list-disc.ml-6.mt-1
+        - cad_model.errors.each do |error|
+          %li= error.full_message
+
+  - field_base = "block rounded-md border px-3 py-2 w-full text-sm transition-colors bg-taupe-50 text-taupe-900 dark:bg-taupe-800 dark:text-taupe-100"
+  - label_base = "block text-sm font-medium mb-1 text-taupe-700 dark:text-taupe-300"
+  - border_ok  = "border-taupe-300 focus:outline-taupe-600 dark:border-taupe-600 dark:focus:outline-taupe-400"
+  - border_err = "border-red-400 focus:outline-red-500 dark:border-red-600"
+
+  .my-5
+    = form.label :name, class: label_base
+    = form.text_field :name, class: "#{field_base} #{cad_model.errors[:name].any? ? border_err : border_ok}"
+
+  .my-5
+    = form.label :description, class: label_base
+    = form.textarea :description, rows: 4, class: "#{field_base} #{cad_model.errors[:description].any? ? border_err : border_ok}"
+
+  .my-5
+    = form.label :file_format, class: label_base
+    = form.text_field :file_format, class: "#{field_base} #{cad_model.errors[:file_format].any? ? border_err : border_ok}"
+
+  .my-5
+    = form.label :file, class: label_base
+    = form.file_field :file,
+        class: "block mt-2 w-full text-sm text-taupe-500 dark:text-taupe-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:cursor-pointer file:transition-colors file:bg-taupe-200 file:text-taupe-800 hover:file:bg-taupe-300 dark:file:bg-taupe-700 dark:file:text-taupe-200 dark:hover:file:bg-taupe-600"
+
+  .mt-6
+    = form.submit class: "rounded-md px-4 py-2.5 font-medium cursor-pointer transition-colors bg-taupe-800 text-taupe-50 hover:bg-taupe-700 dark:bg-taupe-200 dark:text-taupe-900 dark:hover:bg-taupe-300"

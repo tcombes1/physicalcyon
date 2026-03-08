@@ -1,0 +1,4 @@
+- content_for :title, @cad_model.name
+
+= turbo_stream_from "cad_model_#{@cad_model.id}"
+= render "cad_models/status", cad_model: @cad_model
