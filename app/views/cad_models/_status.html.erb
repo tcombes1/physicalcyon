@@ -34,9 +34,25 @@
       <div
         data-controller="model-viewer"
         data-model-viewer-url-value="<%= rails_blob_path(cad_model.gltf_file) %>"
-        class="w-full rounded-lg overflow-hidden border border-gray-200"
+        class="relative w-full rounded-lg overflow-hidden border border-gray-200"
         style="height: 480px;"
-      ></div>
+      >
+        <div class="absolute top-2 right-2 z-10 flex gap-1">
+          <% [["XY", "xy"], ["XZ", "xz"], ["YZ", "yz"], ["ISO", "iso"]].each do |label, view| %>
+            <button
+              data-action="click->model-viewer#setView"
+              data-model-viewer-view-param="<%= view %>"
+              class="px-2 py-1 text-xs font-mono font-semibold rounded bg-white/80 hover:bg-white border border-gray-300 text-gray-700 shadow-sm backdrop-blur-sm transition-colors"
+            ><%= label %></button>
+          <% end %>
+          <% [["↻X", "rotateX"], ["↻Y", "rotateY"], ["↻Z", "rotateZ"]].each do |label, action| %>
+            <button
+              data-action="click->model-viewer#<%= action %>"
+              class="px-2 py-1 text-xs font-mono font-semibold rounded bg-white/80 hover:bg-white border border-gray-300 text-gray-700 shadow-sm backdrop-blur-sm transition-colors"
+            ><%= label %></button>
+          <% end %>
+        </div>
+      </div>
     </div>
   <% end %>
 <% end %>
