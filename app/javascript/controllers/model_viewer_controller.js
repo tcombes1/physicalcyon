@@ -15,6 +15,65 @@ const VIEW_DIRS = {
 const ANIM_DURATION  = 550  // ms — view transition
 const DRAG_THRESHOLD = 5    // px — below this a click+release counts as a pick
 
+// ── Palette color system ────────────────────────────────────────────────────
+// Six Tailwind 4.2 palettes, each as oklch values at the four variants we use:
+//   light mode: surface=400, edge=500
+//   dark  mode: surface=700, edge=800
+
+const PALETTE_NAMES = ['slate', 'stone', 'taupe', 'mauve', 'mist', 'olive']
+
+// Raw oklch(L% C H) values from Tailwind 4.2
+const PALETTE_OKLCH = {
+  slate: { 300: [86.9, 0.022, 252.894], 400: [70.4, 0.040, 256.788], 500: [55.4, 0.046, 257.417] },
+  stone: { 300: [86.9, 0.005,  56.366], 400: [70.9, 0.010,  56.259], 500: [55.3, 0.013,  58.071] },
+  taupe: { 300: [86.8, 0.007,  39.500], 400: [71.4, 0.014,  41.200], 500: [54.7, 0.021,  43.100] },
+  mauve: { 300: [86.5, 0.012, 325.680], 400: [71.1, 0.019, 323.020], 500: [54.2, 0.034, 322.500] },
+  mist:  { 300: [87.2, 0.007, 219.600], 400: [72.3, 0.014, 214.400], 500: [56.0, 0.021, 213.500] },
+  olive: { 300: [88.0, 0.011, 106.600], 400: [73.7, 0.021, 106.900], 500: [58.0, 0.031, 107.300] },
+}
+
+// oklch → linear sRGB via Björn Ottosson's OKLab model.
+// Returns [r, g, b] in linear sRGB (may be slightly outside [0,1] — clamp after).
+function oklchToLinearRGB(Lpct, C, H) {
+  const L  = Lpct / 100
+  const hr = H * (Math.PI / 180)
+  const a  = C * Math.cos(hr)
+  const b  = C * Math.sin(hr)
+
+  const l_ = L + 0.3963377774 * a + 0.2158037573 * b
+  const m_ = L - 0.1055613458 * a - 0.0638541728 * b
+  const s_ = L - 0.0894841775 * a - 1.2914855480 * b
+
+  const l = l_ * l_ * l_
+  const m = m_ * m_ * m_
+  const s = s_ * s_ * s_
+
+  return [
+    +4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+    -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s,
+  ]
+}
+
+// Pre-compute all palette entries as THREE.Color objects in linear sRGB.
+// Three.js r152+ interprets new THREE.Color(r,g,b) as linear sRGB, which is
+// exactly what we produce here — no browser CSS parsing needed.
+function buildPaletteColors() {
+  const colors = {}
+  for (const [name, variants] of Object.entries(PALETTE_OKLCH)) {
+    colors[name] = {}
+    for (const [level, [L, C, H]] of Object.entries(variants)) {
+      const [r, g, b] = oklchToLinearRGB(L, C, H)
+      colors[name][level] = new THREE.Color(
+        Math.max(0, Math.min(1, r)),
+        Math.max(0, Math.min(1, g)),
+        Math.max(0, Math.min(1, b)),
+      )
+    }
+  }
+  return colors
+}
+
 export default class extends Controller {
   static values = { url: String }
 
@@ -25,6 +84,13 @@ export default class extends Controller {
     this._loadedScene = null
     this._selection   = null   // { meshes: [{ mesh, origMat }] }
     this._mdX = 0; this._mdY = 0  // mousedown position for drag detection
+
+    // Palette state
+    this._paletteColors = buildPaletteColors()
+    this._partColorMap  = new Map()  // node → { palette, isSurface, mat }
+    this._edgeObjects   = []         // THREE.LineSegments added for edge overlay
+    this._isDark        = null       // tracks last-seen theme; null forces initial apply
+
     this._setupScene()
     this._loadModel()
     this._setupResizeObserver()
@@ -121,6 +187,7 @@ export default class extends Controller {
 
     const apply = (node) => {
       if (!node.isMesh) return
+      // origMat is the palette-colored material we assigned; restore it on clear.
       const origMat = node.material
       const hlMat   = origMat.clone()
       hlMat.color   = this._desaturate(origMat.color, fullGray ? 1.0 : 0.65)
@@ -168,7 +235,8 @@ export default class extends Controller {
     const hits = raycaster.intersectObjects(
       this._loadedScene ? [this._loadedScene] : [], true
     )
-    return hits[0] || null
+    // Skip LineSegments (our edge overlays) — only pick Mesh objects.
+    return hits.find(h => h.object.isMesh) || null
   }
 
   // ── Scene setup ─────────────────────────────────────────────────────────────
@@ -184,7 +252,6 @@ export default class extends Controller {
 
     this._scene = new THREE.Scene()
     this._scene.background = new THREE.Color(this._bgColor())
-    this._setupThemeObserver()
 
     this._camera = new THREE.PerspectiveCamera(45, el.clientWidth / el.clientHeight, 0.01, 10000)
     this._camera.position.set(0, 0, 5)
@@ -208,6 +275,15 @@ export default class extends Controller {
     this._controls.dampingFactor = 0.08
 
     this._renderer.setAnimationLoop((now) => {
+      // Detect theme changes on every frame — cheap classList check, avoids
+      // any MutationObserver timing/ordering issues with Stimulus + Turbo.
+      const nowDark = document.documentElement.classList.contains('dark')
+      if (nowDark !== this._isDark) {
+        this._isDark = nowDark
+        this._scene.background = new THREE.Color(this._bgColor())
+        this._applyPartColors()
+      }
+
       this._stepAnim(now)
       this._controls.update()
       this._renderer.render(this._scene, this._camera)
@@ -273,23 +349,90 @@ export default class extends Controller {
 
         this._controls.target.copy(this._modelCenter)
         this._controls.update()
+
+        this._assignPartColors(gltf.scene)
       },
       undefined,
       (err) => console.error("GLTFLoader error:", err)
     )
   }
 
+  // ── Part color assignment ───────────────────────────────────────────────────
+
+  // Override every mesh's material color with its part's Tailwind palette,
+  // and add an EdgesGeometry overlay so edges get their own palette variant.
+  //
+  // Palette assignment is keyed by the original material's color value so that:
+  //   • faces sharing the same STEP color (same component) → same palette
+  //   • faces with different STEP colors (different components) → different palettes
+  // This works regardless of GLTF node naming and whether materials are shared
+  // or cloned by the loader.
+  _assignPartColors(scene) {
+    this._partColorMap.clear()
+
+    // Dispose any edge objects from a previous load
+    for (const ls of this._edgeObjects) {
+      ls.geometry.dispose()
+      ls.material.dispose()
+      ls.parent?.remove(ls)
+    }
+    this._edgeObjects = []
+
+    // Map from quantised original color string → palette name, built as we
+    // traverse so the first distinct color seen gets PALETTE_NAMES[0], the
+    // second gets PALETTE_NAMES[1], cycling through all six.
+    const colorKeyToPalette = new Map()
+    let paletteIdx = 0
+
+    scene.traverse((node) => {
+      if (!node.isMesh || !node.geometry) return
+
+      const origMat = Array.isArray(node.material) ? node.material[0] : node.material
+      if (!origMat) return
+
+      // Quantise to 3 decimal places so floating-point noise doesn't split identical colors.
+      const c   = origMat.color
+      const key = `${c.r.toFixed(3)},${c.g.toFixed(3)},${c.b.toFixed(3)}`
+
+      if (!colorKeyToPalette.has(key)) {
+        colorKeyToPalette.set(key, PALETTE_NAMES[paletteIdx % PALETTE_NAMES.length])
+        paletteIdx++
+      }
+      const palette = colorKeyToPalette.get(key)
+
+      // Replace the GLTF-assigned material color with the palette surface color.
+      // Clone first so we don't mutate shared materials.
+      const surfMat = origMat.clone()
+      node.material = surfMat
+      this._partColorMap.set(node, { palette, isSurface: true, mat: surfMat })
+
+      // Build an edge overlay: show edges where adjacent face normals diverge
+      // more than 15°, which captures the B-rep face boundaries neatly.
+      const edgesGeo = new THREE.EdgesGeometry(node.geometry, 15)
+      const edgesMat = new THREE.LineBasicMaterial({ color: 0x000000 })
+      const edges    = new THREE.LineSegments(edgesGeo, edgesMat)
+      node.add(edges)
+      this._edgeObjects.push(edges)
+      this._partColorMap.set(edges, { palette, isSurface: false, mat: edgesMat })
+    })
+
+    this._applyPartColors()
+  }
+
+  // Push the correct palette variant to every tracked material based on the
+  // current theme. Called on load and whenever the theme toggles.
+  _applyPartColors() {
+    for (const [, { palette, isSurface, mat }] of this._partColorMap) {
+      const variant = isSurface ? (this._isDark ? 400 : 300) : (this._isDark ? 500 : 400)
+      const color   = this._paletteColors[palette]?.[variant]
+      if (color) mat.color.copy(color)
+    }
+  }
+
   // ── Theme-aware background ──────────────────────────────────────────────────
 
   _bgColor() {
-    return document.documentElement.classList.contains("dark") ? 0x1f1a16 : 0xede9e2
-  }
-
-  _setupThemeObserver() {
-    this._themeObserver = new MutationObserver(() => {
-      if (this._scene) this._scene.background = new THREE.Color(this._bgColor())
-    })
-    this._themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] })
+    return this._isDark ? 0x1f1a16 : 0xede9e2
   }
 
   // ── Resize ──────────────────────────────────────────────────────────────────
@@ -322,10 +465,14 @@ export default class extends Controller {
       canvas.remove()
       this._renderer = null
     }
-    if (this._themeObserver) {
-      this._themeObserver.disconnect()
-      this._themeObserver = null
+    for (const ls of this._edgeObjects) {
+      ls.geometry.dispose()
+      ls.material.dispose()
     }
+    this._edgeObjects  = []
+    this._partColorMap = new Map()
+    this._paletteColors = null
+
     this._scene       = null
     this._camera      = null
     this._controls    = null
