@@ -1,6 +1,5 @@
 class CadModelsController < ApplicationController
   before_action :set_cad_model, only: %i[ show edit update destroy status ]
-  before_action :load_sidebar_models
 
   # GET /cad_models or /cad_models.json
   def index
@@ -75,7 +74,4 @@ class CadModelsController < ApplicationController
       params.expect(cad_model: [ :name, :description, :file_format, :file ])
     end
 
-    def load_sidebar_models
-      @sidebar_models = CadModel.order(created_at: :desc)
-    end
 end

@@ -26,7 +26,7 @@
     .flex.h-full
 
       / ── Left sidebar ─────────────────────────────────────────────
-      %nav{ class: "w-56 flex-shrink-0 flex flex-col border-r bg-stone-300 border-taupe-200 dark:bg-taupe-900 dark:border-taupe-800" }
+      %nav{ class: "w-56 flex-shrink-0 flex flex-col border-r bg-mist-300 border-taupe-200 dark:bg-mist-700 dark:border-taupe-800" }
 
         / Header
         .flex.items-center.justify-between.gap-2.px-4.py-3{ class: "border-b border-taupe-200 dark:border-taupe-800" }
@@ -34,19 +34,32 @@
           = link_to "+ Upload", new_cad_model_path,
               class: "flex-shrink-0 text-xs px-2 py-1 rounded font-medium transition-colors bg-taupe-800 text-taupe-50 hover:bg-taupe-700 dark:bg-taupe-200 dark:text-taupe-900 dark:hover:bg-taupe-300"
 
-        / Model list
+        / Part hierarchy
         .flex-1.overflow-y-auto.py-2
-          %p{ class: "px-4 py-1 text-xs font-semibold uppercase tracking-wider text-taupe-400 dark:text-taupe-600" } Models
+          - if defined?(@cad_model) && @cad_model
+            / Back link
+            = link_to cad_models_path,
+                class: "flex items-center gap-1 px-3 py-1 mb-1 text-xs transition-colors text-taupe-400 dark:text-taupe-600 hover:text-taupe-700 dark:hover:text-taupe-300" do
+              %span ←
+              %span All models
 
-          - if @sidebar_models&.any?
-            - @sidebar_models.each do |m|
-              - active = defined?(@cad_model) && @cad_model&.id == m.id
-              = link_to cad_model_path(m),
-                  class: "flex items-center gap-2.5 px-3 py-2 mx-1 rounded text-sm transition-colors #{active ? 'bg-taupe-200 text-taupe-900 dark:bg-taupe-800 dark:text-taupe-100' : 'text-taupe-500 dark:text-taupe-400 hover:bg-taupe-200 dark:hover:bg-taupe-800 hover:text-taupe-900 dark:hover:text-taupe-100'}" do
-                %span{ class: "w-2 h-2 rounded-full flex-shrink-0 #{status_dot_class(m.status)}" }
-                %span.truncate= m.name.presence || "Untitled"
+            / Model name header
+            %p{ class: "px-3 pb-1 pt-0.5 text-xs font-semibold uppercase tracking-wider truncate text-taupe-700 dark:text-taupe-300" }
+              = @cad_model.name.presence || "Untitled"
+
+            / Part tree — populated by JS once the glTF loads
+            %div{ data: { controller: "part-tree" } }
+              %p{ data: { "part-tree-target": "placeholder" },
+                  class: "px-3 py-1 text-xs text-taupe-400 dark:text-taupe-600 italic" }
+                - if @cad_model.done?
+                  = "Loading parts…"
+                - else
+                  = @cad_model.status.capitalize + "…"
           - else
-            %p{ class: "px-4 py-2 text-xs text-taupe-400 dark:text-taupe-600" } No models yet.
+            = link_to cad_models_path,
+                class: "flex items-center gap-1 px-3 py-1 text-xs transition-colors text-taupe-400 dark:text-taupe-600 hover:text-taupe-700 dark:hover:text-taupe-300" do
+              %span ←
+              %span All models
 
         / Footer: theme toggle
         .px-4.py-3{ class: "border-t border-taupe-200 dark:border-taupe-800",
@@ -57,5 +70,5 @@
             %span Appearance
 
       / ── Main content area ────────────────────────────────────────
-      %main{ class: "flex-1 relative overflow-hidden bg-taupe-50 dark:bg-taupe-950" }
+      %main{ class: "flex-1 relative overflow-hidden bg-mist-400 dark:bg-mist-800" }
         = yield

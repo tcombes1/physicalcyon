@@ -1,7 +1,66 @@
 - content_for :title, "Physicalcyon"
 
-.absolute.inset-0.flex.items-center.justify-center
-  .text-center
-    %p.text-gray-500.text-lg.mb-4 Select a model from the sidebar, or upload one to get started.
-    = link_to "+ Upload a model", new_cad_model_path,
-        class: "rounded-md px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors"
+.absolute.inset-0.overflow-y-auto
+
+  / ── Header ─────────────────────────────────────────────────────────────────
+  .flex.items-center.justify-between.px-8.pt-8.pb-6
+    %h1{ class: "text-lg font-semibold tracking-wide text-taupe-900 dark:text-taupe-100" } Models
+    = link_to new_cad_model_path,
+        class: "text-xs px-3 py-1.5 rounded font-medium transition-colors bg-taupe-800 text-taupe-50 hover:bg-taupe-700 dark:bg-taupe-200 dark:text-taupe-900 dark:hover:bg-taupe-300" do
+      + Upload
+
+  - if @cad_models.any?
+
+    / ── Grid ──────────────────────────────────────────────────────────────────
+    .grid.gap-5.px-8.pb-8{ style: "grid-template-columns: repeat(auto-fill, minmax(200px, 1fr))" }
+      - @cad_models.each do |m|
+
+        / Card
+        .group.relative.rounded-lg.overflow-hidden.border.transition-all{ class: "bg-taupe-100 border-taupe-200 dark:bg-taupe-900 dark:border-taupe-800 hover:shadow-md hover:border-taupe-300 dark:hover:border-taupe-700" }
+
+          = link_to cad_model_path(m), class: "block" do
+
+            / Thumbnail
+            .overflow-hidden{ class: "bg-taupe-200 dark:bg-taupe-800", style: "aspect-ratio: 4/3" }
+              - if m.thumbnail.attached?
+                = image_tag rails_blob_path(m.thumbnail),
+                    class: "w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+              - else
+                .w-full.h-full.flex.items-center.justify-center
+                  %svg.w-10.h-10{ xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24",
+                                  "stroke-width": "1.2", stroke: "currentColor",
+                                  class: "text-taupe-400 dark:text-taupe-600" }
+                    %path{ "stroke-linecap": "round", "stroke-linejoin": "round",
+                           d: "M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" }
+
+            / Body
+            .px-3.py-2.5
+              %p{ class: "font-medium text-sm truncate mb-1 text-taupe-900 dark:text-taupe-100" }
+                = m.name.presence || "Untitled"
+              .flex.items-center.gap-1.5
+                %span{ class: "w-1.5 h-1.5 rounded-full flex-shrink-0 #{status_dot_class(m.status)}" }
+                %span{ class: "text-xs text-taupe-500 dark:text-taupe-400" }
+                  = m.status.capitalize
+                %span{ class: "text-xs text-taupe-300 dark:text-taupe-700 ml-auto" }
+                  = m.created_at.strftime("%-d %b %Y")
+
+          / Delete button — shown on hover, absolutely positioned over card
+          = button_to cad_model_path(m), method: :delete,
+              form_class: "absolute top-2 right-2 z-10",
+              class: "opacity-0 group-hover:opacity-100 w-6 h-6 flex items-center justify-center rounded text-xs font-medium transition-all bg-taupe-900/50 text-taupe-100 hover:bg-red-600 hover:text-white backdrop-blur-sm",
+              data: { turbo_confirm: "Delete \"#{m.name.presence || 'Untitled'}\"?" } do
+            %span ×
+
+  - else
+
+    / ── Empty state ───────────────────────────────────────────────────────────
+    .flex.flex-col.items-center.justify-center.px-8.pb-8{ style: "min-height: 50vh" }
+      %svg.mb-5{ xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24",
+                 "stroke-width": "1", stroke: "currentColor",
+                 class: "w-16 h-16 text-taupe-300 dark:text-taupe-700" }
+        %path{ "stroke-linecap": "round", "stroke-linejoin": "round",
+               d: "M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" }
+      %p{ class: "text-base font-medium mb-1 text-taupe-600 dark:text-taupe-400" } No models yet
+      %p{ class: "text-sm mb-5 text-taupe-400 dark:text-taupe-600" } Upload a STEP file to get started
+      = link_to "Upload a model", new_cad_model_path,
+          class: "text-sm px-4 py-2 rounded font-medium transition-colors bg-taupe-800 text-taupe-50 hover:bg-taupe-700 dark:bg-taupe-200 dark:text-taupe-900 dark:hover:bg-taupe-300"

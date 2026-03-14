@@ -125,18 +125,59 @@ export default class extends Controller {
 
       if (!hit) return
 
+      const part = this._findPart(hit.object)
+
       if (e.detail === 2) {
         // Double-click → highlight the whole part (all meshes under the named ancestor)
-        const part = this._findPart(hit.object)
         this._applyHighlight(part, /*fullGray*/ true)
       } else {
         // Single click → highlight just this surface mesh
         this._applyHighlight(hit.object, /*fullGray*/ false)
       }
+
+      // Notify the part tree sidebar which part is active
+      document.dispatchEvent(new CustomEvent('model-viewer:part-selected', {
+        detail: { name: part.name || '' }
+      }))
+    }
+
+    // Listen for part selections coming from the sidebar tree
+    this._onPartTreeSelect = (e) => {
+      if (!this._loadedScene) return
+      const obj = this._loadedScene.getObjectByName(e.detail.name)
+      if (!obj) return
+      this._clearSelection()
+      this._applyHighlight(obj, /*fullGray*/ true)
+    }
+
+    // Listen for visibility toggles from the sidebar tree
+    this._onPartTreeToggleVisibility = (e) => {
+      if (!this._loadedScene) return
+      const obj = this._loadedScene.getObjectByName(e.detail.name)
+      if (obj) obj.visible = e.detail.visible
     }
 
     canvas.addEventListener('mousedown', this._onMouseDown)
     canvas.addEventListener('click',     this._onCanvasClick)
+    document.addEventListener('part-tree:select',             this._onPartTreeSelect)
+    document.addEventListener('part-tree:toggle-visibility',  this._onPartTreeToggleVisibility)
+  }
+
+  // Build a nested tree of named nodes from the loaded scene graph.
+  // Unnamed nodes (mesh primitives, anonymous groups) are skipped; their
+  // named descendants are bubbled up to the nearest named ancestor.
+  _buildPartTree(node) {
+    const result = []
+    for (const child of node.children) {
+      // Skip LineSegments2 edge overlays we injected during color assignment
+      if (child.type === 'LineSegments2') continue
+      if (child.name) {
+        result.push({ name: child.name, uuid: child.uuid, children: this._buildPartTree(child) })
+      } else {
+        result.push(...this._buildPartTree(child))
+      }
+    }
+    return result
   }
 
   // Walk up from `mesh`'s PARENT to find the first named ancestor.
@@ -323,6 +364,9 @@ export default class extends Controller {
         this._controls.update()
 
         this._assignPartColors(gltf.scene)
+
+        const tree = this._buildPartTree(this._loadedScene)
+        document.dispatchEvent(new CustomEvent('model-viewer:parts-loaded', { detail: { tree } }))
       },
       undefined,
       (err) => console.error("GLTFLoader error:", err)
@@ -413,7 +457,7 @@ export default class extends Controller {
   // ── Theme-aware background ──────────────────────────────────────────────────
 
   _bgColor() {
-    return this._isDark ? 0x1f1a16 : 0xede9e2
+    return this._isDark ? 0x22292b : 0x9ca8ab
   }
 
   // ── Resize ──────────────────────────────────────────────────────────────────
@@ -444,6 +488,12 @@ export default class extends Controller {
     if (this._resizeObserver) {
       this._resizeObserver.disconnect()
       this._resizeObserver = null
+    }
+    if (this._onPartTreeSelect) {
+      document.removeEventListener('part-tree:select',            this._onPartTreeSelect)
+      document.removeEventListener('part-tree:toggle-visibility', this._onPartTreeToggleVisibility)
+      this._onPartTreeSelect = null
+      this._onPartTreeToggleVisibility = null
     }
     if (this._renderer) {
       const canvas = this._renderer.domElement
